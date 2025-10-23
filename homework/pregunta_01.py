@@ -1,9 +1,64 @@
 """
 Escriba el codigo que ejecute la accion solicitada en la pregunta.
 """
-import os
-import string
+
+from pathlib import Path
 import pandas as pd
+
+
+def limpiar_texto(col: pd.Series, strip: bool = True) -> pd.Series:
+    """
+    Limpia una columna de texto:
+    - Minúsculas
+    - Reemplaza espacios, puntos y guiones por guiones bajos
+    - Opcionalmente elimina espacios alrededor
+    """
+    col = col.str.lower().str.replace(r"[ .-]", "_", regex=True)
+    return col.str.strip() if strip else col
+
+
+def limpiar_datos(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Realiza limpieza general del DataFrame:
+    - Elimina filas con datos faltantes
+    - Estandariza columnas de texto y categorías
+    - Convierte montos a float, fechas y categorías
+    """
+    df = df.dropna().copy()
+
+    # Limpieza y conversión de monto
+    df["monto_del_credito"] = (
+        df["monto_del_credito"]
+        .str.removeprefix("$ ")
+        .str.replace(",", "")
+        .astype(float)
+    )
+
+    # Columnas de texto que deben estandarizarse y convertirse a categoría
+    columnas_categoria = [
+        "tipo_de_emprendimiento",
+        "idea_negocio",
+        "barrio",
+        "línea_credito",
+    ]
+    for col in columnas_categoria:
+        df[col] = limpiar_texto(df[col], strip=(col != "barrio")).astype("category")
+
+    # Normalización de sexo
+    df["sexo"] = df["sexo"].str.lower().astype("category")
+
+    # Conversión de tipos
+    df["estrato"] = df["estrato"].astype("category")
+    df["comuna_ciudadano"] = df["comuna_ciudadano"].astype(int).astype("category")
+    df["fecha_de_beneficio"] = pd.to_datetime(
+        df["fecha_de_beneficio"], dayfirst=True, format="mixed"
+    )
+
+    # Eliminar duplicados
+    df.drop_duplicates(inplace=True)
+
+    return df
+
 
 def pregunta_01():
     """
@@ -15,43 +70,16 @@ def pregunta_01():
     El archivo limpio debe escribirse en "files/output/solicitudes_de_credito.csv"
 
     """
+    # Leer datos
+    df = pd.read_csv("files/input/solicitudes_de_credito.csv", sep=";", index_col=0)
 
-    df = pd.read_csv("files/input/solicitudes_de_credito.csv", index_col=0, sep=";")
-    original = df["fecha_de_beneficio"].copy()
-    df["fecha_de_beneficio"] = pd.to_datetime(
-        original, errors="coerce", dayfirst=True
-    )
-    mask = df["fecha_de_beneficio"].isna()
-    df.loc[mask, "fecha_de_beneficio"] = pd.to_datetime(
-        original[mask], format="%Y/%m/%d", errors="coerce"
-    )
-    df["comuna_ciudadano"] = df["comuna_ciudadano"].astype("Int64")
-    columnas = df.columns
-    #idea_negocio y barrio no termina de limpiarse
-    for columna in columnas:
-        if df[columna].dtype == object:
-            print(sorted(df[columna].value_counts().index.tolist()))
-            df[columna] = (
-                df[columna]
-                .str.lower()
-                .str.translate(str.maketrans(string.punctuation, " " * len(string.punctuation)))
-                .str.replace("  ", " ", regex=False)
-                .str.strip()
-            )
-            print(sorted(df[columna].value_counts().index.tolist()))
-    df['línea_credito'] = df['línea_credito'].replace({
-        "soli diaria": "solidaria"
-    })
-    df["monto_del_credito"] = df["monto_del_credito"].str.replace(" ", "").astype("Int64")
-    df.drop_duplicates(inplace=True)
+    # Aplicar limpieza
+    df_limpio = limpiar_datos(df)
 
-    output_dir = "files/output/"
-    output_data_path = "files/output/solicitudes_de_credito.csv"
-    if os.path.exists(output_dir):
-        os.remove(output_data_path)
-    else:
-        os.makedirs(output_dir)
-    df.to_csv(output_data_path, sep=";", header=True, index=False)
+    # Guardar resultado
+    out_path = Path("files/output")
+    out_path.mkdir(parents=True, exist_ok=True)
+    df_limpio.to_csv(out_path / "solicitudes_de_credito.csv", sep=";")
 
 if __name__ == "__main__":
     pregunta_01()

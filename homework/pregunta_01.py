@@ -25,7 +25,7 @@ def pregunta_01():
 
     df = pd.read_csv("files/input/solicitudes_de_credito.csv", index_col=0, sep=";")
     df.dropna(axis=0, inplace=True)
-    df["sexo"] = df["sexo"].str.lower().astype("category")
+    df["sexo"] = df["sexo"].str.lower()
     df["comuna_ciudadano"] = df["comuna_ciudadano"].astype("Int64")
     df["fecha_de_beneficio"] = pd.to_datetime(
         df["fecha_de_beneficio"], dayfirst=True, format="mixed"
@@ -34,13 +34,12 @@ def pregunta_01():
         df["monto_del_credito"]
         .str.removeprefix("$ ")
         .str.replace(",", "")
-        .astype(float)
+        .astype("float64")
     )
 
-    unificables = ["tipo_de_emprendimiento", "idea_negocio", "línea_credito"]
+    unificables = ["tipo_de_emprendimiento", "idea_negocio", "barrio", "línea_credito"]
     for col_name in unificables:
         df = limpiar_texto(df, col_name)
-    df["barrio"] = df["barrio"].str.lower().str.replace(r"[ .-]", "_", regex=True)
 
     df.drop_duplicates(inplace=True)
 
